@@ -43,6 +43,8 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
+#include <geometry_msgs/Pose.h>
+#include <geometry_msgs/PoseStamped.h>
 
 // PCL
 #include <pcl/common/common.h>
@@ -51,6 +53,11 @@
 
 // GPG
 #include <gpg/cloud_camera.h>
+
+// TF
+#include <tf/transform_datatypes.h>
+/* #include <tf/transform_broadcaster.h> */
+#include <tf_conversions/tf_eigen.h>
 
 // this project (messages)
 #include <gpd/CloudIndexed.h>
@@ -80,7 +87,7 @@ typedef pcl::PointCloud<pcl::PointNormal> PointCloudPointNormal;
 class GraspDetectionNode
 {
 public:
-  
+
   /**
    * \brief Constructor.
    * \param node the ROS node
@@ -111,6 +118,8 @@ public:
 
 
 private:
+  // transform gpd::GraspConfig to geometry_msg::Pose
+  geometry_msgs::Pose graspConfigToPose(const gpd::GraspConfig &graspConfig);
 
   /**
    * \brief Find the indices of the points within a ball around a given point in the cloud.
@@ -132,7 +141,7 @@ private:
    * \param msg the incoming ROS message
   */
   void cloud_indexed_callback(const gpd::CloudIndexed& msg);
-  
+
   /**
    * \brief Callback function for the ROS topic that contains the input point cloud and a list of (x,y,z) samples.
    * \param msg the incoming ROS message

@@ -30,11 +30,14 @@ GraspDetectionNode::GraspDetectionNode(ros::NodeHandle& node) : has_cloud_(false
   int cloud_type;
   node.param("cloud_type", cloud_type, POINT_CLOUD_2);
   std::string cloud_topic;
-  node.param("cloud_topic", cloud_topic, std::string("/camera/depth_registered/points"));
+  node.param("cloud_topic", cloud_topic, std::string("/head_camera/depth_registered/points"));
   std::string samples_topic;
   node.param("samples_topic", samples_topic, std::string(""));
   std::string rviz_topic;
   node.param("rviz_topic", rviz_topic, std::string(""));
+
+  /* cloud_topic = "/head_camera/depth_registered/points"; */
+  ROS_INFO("cloud topic: %s", cloud_topic.c_str());
 
   if (!rviz_topic.empty())
   {
@@ -132,6 +135,42 @@ std::vector<Grasp> GraspDetectionNode::detectGraspPosesInTopic()
   ROS_INFO_STREAM("Published " << selected_grasps_msg.grasps.size() << " highest-scoring grasps.");
 
   return grasps;
+}
+
+
+geometry_msgs::Pose GraspDetectionNode::graspConfigToPose(const gpd::GraspConfig &graspConfig)
+{
+    geometry_msgs::Pose pose;
+    pose.position.x = 0.5 * (graspConfig.bottom.x + graspConfig.top.x);
+    pose.position.y = 0.5 * (graspConfig.bottom.y + graspConfig.top.y);
+    pose.position.z = 0.5 * (graspConfig.bottom.z + graspConfig.top.z);
+
+    tf::Vector3 x_axis(graspConfig.approach.x, graspConfig.approach.y, graspConfig.approach.z);
+    tf::Vector3 y_axis(graspConfig.binormal.x, graspConfig.binormal.y, graspConfig.binormal.z);
+    tf::Vector3 z_axis(graspConfig.axis.x,     graspConfig.axis.y,     graspConfig.axis.z);
+
+    x_axis = x_axis.normalize();
+    y_axis = y_axis.normalize();
+    z_axis = z_axis.normalize();
+
+    // shift position along x_axis (center of the gripper -> wrist link)
+    float offset = 0.16;
+    pose.position.x -= offset * x_axis.x();
+    pose.position.y -= offset * x_axis.y();
+    pose.position.z -= offset * x_axis.z();
+
+    Eigen::Matrix4f m;
+    m << x_axis.x(), y_axis.x(), z_axis.x(), 0,
+         x_axis.y(), y_axis.y(), z_axis.y(), 0,
+         x_axis.z(), y_axis.z(), z_axis.z(), 0,
+         0   	   , 0         , 0         , 1;
+
+    pose.orientation.w = sqrt(1.0 + m(0,0) + m(1,1) + m(2,2)) / 2.0;
+    pose.orientation.x = (m(2,1) - m(1,2)) / (4 * pose.orientation.w);
+    pose.orientation.y = (m(0,2) - m(2,0)) / (4 * pose.orientation.w);
+    pose.orientation.z = (m(1,0) - m(0,1)) / (4 * pose.orientation.w);
+
+    return pose;
 }
 
 
